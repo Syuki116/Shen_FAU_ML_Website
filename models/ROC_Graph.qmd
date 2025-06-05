@@ -1,0 +1,39 @@
+---
+title: "ROC_Graph"
+author: "Xinyu Shen"
+---
+
+```{r}
+#| label: packages
+#| include: false
+library(tidyverse)
+```
+
+```{r}
+#| label: ROC Graphs together
+roc_logistic <- readRDS("roc_graphs/logistic.rds")
+roc_lasso <- readRDS("roc_graphs/lasso.rds")
+roc_random <- readRDS("roc_graphs/forest.rds")
+
+logistic <- roc_logistic$data |>
+  mutate(model = "logistic")
+
+lasso <- roc_lasso$data |>
+  mutate(model = "lasso")
+
+random <- roc_random$data |>
+  mutate(model = "random")
+
+compare_roc <- 
+  bind_rows(
+    logistic,lasso,random
+  ) |>
+  ggplot(
+    aes(x = 1 - specificity, y = sensitivity, col = model) 
+  ) + 
+  geom_path(lwd = 0.5, alpha = 1) + 
+  geom_abline(lty = 2) + 
+  coord_equal()
+
+compare_roc
+```

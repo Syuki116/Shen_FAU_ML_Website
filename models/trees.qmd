@@ -1,0 +1,187 @@
+---
+title: "Classification Tree"
+author: "Xinyu Shen"
+date: today
+format: html
+---
+# Decision Trees Machine Learning Model for Weapon Carrying School
+## Setting Up the Environment
+```{r}
+#| label: packages
+#| include: false
+library(tidymodels)
+library(tidyverse)
+library(here)
+```
+
+## Loading the Data
+```{r}
+#| label: load-data
+analysis_train <- readRDS(here("models","data", "analysis_train.rds"))
+analysis_folds <- readRDS(here("models","data", "analysis_folds.rds"))
+```
+
+## reciepe
+```{r}
+#| label: model-rec
+
+carry_weapon_recipe_tree <- 
+  recipe(formula = WeaponCarryingSchool ~ ., data = analysis_train) |>
+  step_impute_mode(all_nominal_predictors()) |>
+  step_impute_mean(all_numeric_predictors())
+```
+
+## Model Specification
+```{r}
+#| label: model-spec
+carry_weapon_spec_tree <-
+  decision_tree(
+    cost_complexity = tune(),
+    tree_depth = tune(),
+    min_n = tune()
+  ) |>
+  set_engine("rpart") |>
+  set_mode("classification")
+```
+
+## Creating the Workflow
+```{r}
+#| label: model-workflow
+
+carry_weapon_workflow_tree <-
+  workflow() |>
+  add_recipe(carry_weapon_recipe_tree) |>
+  add_model(carry_weapon_spec_tree)
+
+carry_weapon_workflow_tree
+```
+
+## Model Tuning - (Tuning for the tree - The Grid)
+```{r}
+tree_grid <-
+  grid_regular(
+    cost_complexity(),
+    tree_depth(c(2,5)),
+    min_n(),
+    levels = 2)
+tree_grid
+```
+
+## Tuning for the tree
+```{r}
+#| label: mod-tune
+#| eval: false
+
+cart_tune <- 
+  carry_weapon_workflow_tree %>% 
+  tune_grid(resamples = analysis_folds,
+            grid = tree_grid, 
+            metrics = metric_set(roc_auc),
+            control = control_grid(save_pred = TRUE)
+  )
+
+saveRDS(cart_tune, here("model_outputs", "tree_tune.rds"))
+```
+
+```{r}
+#| echo: false
+cart_tune <- readRDS(here("models","model_outputs", "tree_tune.rds"))
+```
+
+
+## Choosing the best CP
+```{r}
+#| label: determine_best_parameters
+
+show_best(cart_tune, metric = "roc_auc")
+autoplot(cart_tune)
+```
+
+## Choosing the best hyperparameters
+```{r}
+#| label: select_best_parameters
+
+best_weapon_carrying_tree <- select_best(
+  cart_tune, 
+  metric = "roc_auc")
+best_weapon_carrying_tree
+
+# cost_complexity = 1e-10; This is extremely small, meaning almost no penalty is applied for having a more complex tree. OVERFITTING
+```
+## Finalize the Workflow
+```{r}
+#| label: finalize-wf
+
+carry_weapon_final_workflow_tree <-
+  finalize_workflow(carry_weapon_workflow_tree, best_weapon_carrying_tree)
+carry_weapon_final_workflow_tree
+```
+
+## Fit the tree
+```{r}
+#| label: fit
+#| eval: false
+
+carry_weapon_fit_tree <- fit(
+  carry_weapon_final_workflow_tree, 
+  analysis_train)
+carry_weapon_fit_tree
+saveRDS(carry_weapon_fit_tree, here("model_outputs", "tree_fit.rds"))
+```
+
+```{r}
+#| echo: false
+carry_weapon_fit_tree <- readRDS(here("models","model_outputs", "tree_fit.rds"))
+```
+
+## Predictions: Review fit on the training data
+```{r}
+#| label: predict
+
+weapon_pred_tree <-
+  augment(carry_weapon_fit_tree, analysis_train) |>
+  select(WeaponCarryingSchool, .pred_class, .pred_1, .pred_0)
+
+
+```
+
+## ROC graph
+```{r}
+#| label: roc-plot
+#| eval: false
+
+roc_plot_training_tree <- 
+  weapon_pred_tree |> 
+  roc_curve(truth = WeaponCarryingSchool, 
+           .pred_0) |> 
+  autoplot()
+roc_plot_training_tree
+# very bad sensitivity vs specificity
+
+saveRDS(roc_plot_training_tree, here("roc_graphs", "tree.rds"))
+```
+
+```{r}
+#| echo: false
+roc_plot_training_tree <- readRDS(here("models","roc_graphs", "tree.rds"))
+```
+
+## Review on Resamples
+```{r}
+#| label: review-resamples
+
+fit_resamples(carry_weapon_final_workflow_tree, 
+              resamples = analysis_folds) |> 
+  collect_metrics()
+# area under curve = 0.592; accuracy = 0.955
+```
+
+## plot the tree
+```{r}
+#| label: fig-tree
+
+carry_weapon_fit_tree |> 
+  extract_fit_engine() |> 
+  rpart.plot::rpart.plot(roundint=FALSE)
+```
+

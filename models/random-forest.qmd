@@ -1,0 +1,200 @@
+---
+title: "Random Forest"
+author: "Xinyu Shen"
+date: today
+format: html
+---
+# Random Forest Machine Learning Model for Weapon Carrying School
+### Setting Up the Environment
+```{r}
+#| label: packages
+#| include: false
+library(tidymodels)
+library(tidyverse)
+library(here)
+library(janitor) # for adorn_totals
+```
+
+## Loading the Data
+```{r}
+#| label: load-data
+analysis_train <- readRDS(here("models","data", "analysis_train.rds"))
+analysis_folds <- readRDS(here("models","data", "analysis_folds.rds"))
+```
+
+## Splitting the Data
+```{r}
+#| label: Splitting the Data
+
+set.seed(2023)
+WeaponCarry_split <- initial_split(analysis_train, 
+                               strata = WeaponCarryingSchool)
+weapon_train <- training(WeaponCarry_split)
+weapon_test <- testing(WeaponCarry_split)
+
+WeaponCarry_split
+```
+
+## Check our work
+```{r}
+weapon_train |>
+  tabyl(WeaponCarryingSchool)  |>
+  adorn_pct_formatting(0) |>
+  adorn_totals()
+
+weapon_test |>
+  tabyl(WeaponCarryingSchool)  |>
+  adorn_pct_formatting(0) |>
+  adorn_totals()
+```
+
+## Creating the Resampling Object
+```{r}
+set.seed(2023)
+
+cv_weapon <- rsample::vfold_cv(weapon_train, 
+                                v= 5,
+                                strata = WeaponCarryingSchool)
+cv_weapon
+```
+
+
+## reciepe
+```{r}
+#| label: model-rec
+carry_weapon_recipe_forest <- 
+  recipe(formula = WeaponCarryingSchool ~ ., data = weapon_train) |>
+  step_impute_mode(all_nominal_predictors()) |>
+  step_impute_mean(all_numeric_predictors()) |>
+  step_dummy(all_nominal_predictors())
+```
+
+## Model Specification
+```{r}
+#| label: model-spec
+ranger_spec <- 
+  rand_forest(
+    # the number of predictors to sample at each split
+    mtry = tune(), 
+    # the number of observations needed to keep splitting nodes
+    min_n = tune(),
+    trees = 100) |>  
+  set_mode("classification") |>  
+  set_engine("ranger", 
+             # This is essential for vip()
+             importance = "permutation") 
+
+ranger_spec
+```
+
+## Creating the Workflow
+```{r}
+#| label: model-workflow
+ranger_workflow <- 
+  workflow() |> 
+  add_recipe(carry_weapon_recipe_forest) |>  
+  add_model(ranger_spec) 
+
+ranger_workflow
+```
+
+## Model Tuning 
+```{r}
+#| label: Model Tuning
+#doParallel::registerDoParallel()
+  
+set.seed(46257)
+  
+ranger_tune <-
+  tune_grid(
+    ranger_workflow,
+    resamples = cv_weapon,
+# grid = 11 says to choose 11 parameter sets automatically 
+    grid = 11)
+
+#doParallel::stopImplicitCluster()
+
+saveRDS(ranger_tune, here("models", "model_outputs", "forest_tune.rds"))
+
+```
+```{r}
+#| echo: false
+ranger_tune <- readRDS(here("models","model_outputs", "forest_tune.rds"))
+```
+
+
+## Collect the tunning Metrics
+```{r}
+collect_metrics(ranger_tune)
+```
+
+## Visualize the Metrics
+```{r}
+autoplot(ranger_tune)
+```
+
+## Choosing the best hyperparameters
+```{r}
+#| label: select_best_parameters
+
+best_weapon_carrying_forest <- select_best(ranger_tune, metric = "roc_auc")
+best_weapon_carrying_forest
+
+# cost_complexity = 1e-10; This is extremely small, meaning almost no penalty is applied for having a more complex tree. OVERFITTING
+```
+
+## Finalize the Workflow
+```{r}
+#| label: finalize-wf
+
+carry_weapon_final_workflow_forest <-
+  finalize_workflow(ranger_workflow, best_weapon_carrying_forest)
+carry_weapon_final_workflow_forest
+```
+
+## Fit the forest
+```{r}
+#| label: fit
+#| eval: false
+
+carry_weapon_fit_forest <- fit(carry_weapon_final_workflow_forest, 
+                               weapon_train)
+carry_weapon_fit_forest
+
+saveRDS(carry_weapon_fit_forest, here("models","model_outputs", "forest_fit.rds"))
+```
+
+```{r}
+#| echo: false
+carry_weapon_fit_forest <- readRDS(here("models","model_outputs", "forest_fit.rds"))
+```
+
+## Predictions: Review fit on the training data
+```{r}
+#| label: predict
+
+weapon_pred_forest <-
+  augment(carry_weapon_fit_forest, weapon_train) |>
+  select(WeaponCarryingSchool, .pred_class, .pred_1, .pred_0)
+weapon_pred_forest
+```
+
+## ROC graph
+```{r}
+#| label: roc-plot
+#| eval: false
+
+roc_plot_training_forest <- 
+  weapon_pred_forest |> 
+  roc_curve(truth = WeaponCarryingSchool, 
+           .pred_0) |> 
+  autoplot()
+roc_plot_training_forest
+
+saveRDS(roc_plot_training_forest, here("models","roc_graphs", "forest.rds"))
+```
+
+```{r}
+#| echo: false
+roc_plot_training_tree <- readRDS(here("models","roc_graphs", "tree.rds"))
+```

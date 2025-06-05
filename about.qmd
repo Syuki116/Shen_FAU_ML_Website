@@ -1,0 +1,22 @@
+---
+title: "About Me"
+---
+
+::: {.profile-container}
+::: {.profile-image}
+![](img/Yuki.jpeg){.circle-image}
+:::
+
+::: {.profile-text}
+### I am Xinyu(Yuki) Shen
+
+I am an aspiring data scientist passionate about uncovering insights through statistical modeling and machine learning. I am currently an undergraduate at the University of Florida, pursuing a double major in Data Science and Economics with a minor in Mathematics.
+
+My work spans academic research, analytics competitions, and independent projects—each deepening my experience in programming with Python and R, and using tools like R Shiny, SAS, and Excel to explore and visualize complex data. I am particularly drawn to applying data science methods to solve real-world problems, whether through predictive modeling, exploratory analysis, or interactive dashboards.
+
+I am also committed to producing clear, reproducible work and enjoy using tools like RMarkdown and Quarto to document and share my analyses with clarity and transparency.
+
+If I could describe myself using three emojis, I would choose: 📊🧠☕
+
+:::
+:::
