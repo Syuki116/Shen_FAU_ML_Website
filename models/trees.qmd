@@ -1,5 +1,5 @@
 ---
-title: "Classification Tree"
+title: "Classification(Decision) Tree"
 author: "Xinyu Shen"
 date: today
 format: html

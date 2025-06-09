@@ -1,5 +1,6 @@
 ---
 title: "Logistic Regression"
+format: html
 ---
 
 
@@ -17,7 +18,7 @@ Logistic regression is used when the dependent variable is binary (0/1, Yes/No, 
 
 library(tidymodels)
 library(tidyverse)
-library(dissertationData)
+#library(dissertationData)
 library(here)
 
 # Load and prepare the YRBS 2023 dataset
@@ -161,10 +162,4 @@ tidy_model |>
   )
 ```
 
-
-### Results and Interpretation
-
-
-
-### Key Takeaways
 

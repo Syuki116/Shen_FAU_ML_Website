@@ -2,6 +2,7 @@
 title: "Data and Research Question"
 editor_options: 
   chunk_output_type: console
+format: html
 ---
 
 ## Youth Risk Behavior Survey 2023
@@ -42,7 +43,7 @@ The dataset includes information on various health-related behaviors:
 
 library(tidyverse)
 library(tidymodels)
-library(dissertationData)
+#library(dissertationData)
 library(here)
 data(clean_yrbs_2023)
 # Add your data preprocessing code here
